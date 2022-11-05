@@ -332,10 +332,19 @@ class HypothesisTree:
         threshold: int,
         possible_positions: OrderedDict,
         use_caching: bool = True,
+        loss_relevant_positions: List[str] = [],
     ):
         self.model = model
         self.possible_positions = possible_positions
         self.node_stack = OrderedDict()
+        self.loss_relevant_positions = []
+        assert (
+            len(loss_relevant_positions) > 0
+        ), "Must have at least one loss relevant position"
+        for position in loss_relevant_positions:
+            assert (
+                position in possible_positions
+            ), f"{position} not in possible positions"
         self.populate_node_stack()
         self.current_node = self.node_stack[
             next(reversed(self.node_stack))
@@ -362,13 +371,12 @@ class HypothesisTree:
                     node = Node(layer, head, pos)
                     self.node_stack[(layer, head, pos)] = node
         layer = self.model.cfg.n_layers
-        pos = next(
-            reversed(self.possible_positions)
-        )  # assume the last position specified is the one that we care about in the residual stream
-        resid_post = Node(layer, None, pos)
-        self.node_stack[
-            (layer, None, pos)
-        ] = resid_post  # this represents blocks.{last}.hook_resid_post
+
+        for pos in self.loss_relevant_positions:
+            resid_post = Node(layer, None, pos)
+            self.node_stack[
+                (layer, None, pos)
+            ] = resid_post  # this represents blocks.{last}.hook_resid_post
 
     def get_caches(self):
         if "orig_cache" in self.__dict__.keys():
@@ -498,9 +506,10 @@ class HypothesisTree:
                         )
 
         # update self.current_node
-        while (
-            len(self.node_stack) > 0
-            and len(self.node_stack[next(reversed(self.node_stack))].children) == 0
+        while len(self.node_stack) > 0 and (
+            len(self.node_stack[next(reversed(self.node_stack))].children) == 0
+            or self.node_stack[next(reversed(self.node_stack))].layer
+            != self.model.cfg.n_layers
         ):
             self.node_stack.popitem()
         if len(self.node_stack) > 0:

@@ -169,7 +169,7 @@ assert 14 <= initial_result <= 18, initial_result
 positions = OrderedDict()
 batch_size, seq_len = rand_tokens_repeat.shape
 
-for i in range(seq_len):
+for i in range(seq_len - 1):
     positions[str(i)] = torch.ones(size=(batch_size,)).long() * i
 
 model.reset_hooks()
@@ -182,6 +182,11 @@ h = HypothesisTree(
     threshold=0.2,
     possible_positions=positions,
     use_caching=True,
+    loss_relevant_positions=[str(n) for n in range(15, 20)],
 )
 
-h.eval()
+eval_round = 0
+while len(h.node_stack) > 0:
+    print(f"Evaluating round {eval_round}")
+    eval_round += 1
+    h.eval()
