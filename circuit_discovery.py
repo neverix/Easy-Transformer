@@ -190,3 +190,53 @@ while len(h.node_stack) > 0:
     print(f"Evaluating round {eval_round}")
     eval_round += 1
     h.eval()
+
+#%%
+
+import matplotlib.pyplot as plt
+import networkx as nx
+
+
+def show(h, save=False, current_node=None):
+    edge_color_list = []
+    color_dict = {
+        "q": "black",
+        "k": "blue",
+        "v": "green",
+        "out": "red",
+        "post": "red",
+    }
+    if current_node is None:
+        current_node = h.root_node
+    G = nx.DiGraph()
+
+    def dfs(node):
+        G.add_nodes_from([(node, {"layer": node.layer})])
+        for child_node, child_score, child_type in node.parents:
+            G.add_edges_from([(node, child_node, {"weight": round(child_score, 3)})])
+            edge_color_list.append(color_dict[child_type])
+            dfs(child_node)
+
+    dfs(current_node)
+    pos = nx.multipartite_layout(G, subset_key="layer")
+    # make plt figure fills screen
+    fig = plt.figure(dpi=300, figsize=(24, 24))
+    nx.draw(
+        G,
+        pos,
+        node_size=8000,
+        node_color="#b0a8a7",
+        linewidths=2.0,
+        edge_color=edge_color_list,
+        width=1.5,
+        arrowsize=12,
+    )
+
+    nx.draw_networkx_labels(G, pos, font_size=14)
+    edge_labels = nx.get_edge_attributes(G, "weight")
+    nx.draw_networkx_edge_labels(G, pos, edge_labels)
+
+    if save:
+        plt.savefig("ioi_circuit.png")
+
+    plt.show()

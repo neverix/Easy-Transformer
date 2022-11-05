@@ -512,13 +512,13 @@ class HypothesisTree:
             and self.node_stack[next(reversed(self.node_stack))].layer
             != self.model.cfg.n_layers
         ):
-            print(self.node_stack.popitem())
+            print("Poppin and removin", self.node_stack.popitem())
         if len(self.node_stack) > 0:
             self.current_node = self.node_stack[next(reversed(self.node_stack))]
         else:
             self.current_node = None
 
-    def show(self, save=False):
+    def show(self, save=False, manual_node=None):
         edge_color_list = []
         color_dict = {
             "q": "black",
