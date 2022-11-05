@@ -31,6 +31,14 @@ from functools import partial
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+
+from easy_transformer.experiments import (
+    ExperimentMetric,
+    AblationConfig,
+    EasyAblation,
+    EasyPatching,
+    PatchingConfig,
+)
 import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
@@ -81,7 +89,7 @@ ioi_dataset = IOIDataset(
     N=N,
     tokenizer=model.tokenizer,
     prepend_bos=False,
-)
+) # TODO make this a seeded dataset
 
 print(f"Here are two of the prompts from the dataset: {ioi_dataset.sentences[:2]}")
 #%% [markdown]
@@ -97,7 +105,7 @@ print(f"The model gets average IO probs {model_io_probs.item()} over {N} example
 circuit = deepcopy(CIRCUIT)
 
 # we make the ABC dataset in order to knockout other model components
-abc_dataset = (
+abc_dataset = ( # TODO seeded
     ioi_dataset.gen_flipped_prompts(("IO", "RAND"))
     .gen_flipped_prompts(("S", "RAND"))
     .gen_flipped_prompts(("S1", "RAND"))
@@ -117,10 +125,15 @@ print(
     f"The circuit gets average logit difference {circuit_logit_diff.item()} over {N} examples"
 )
 #%% [markdown]
+<<<<<<< HEAD
 # Edge patching
 
 
 def plot_edge_patching(
+=======
+# Path patching
+def plot_path_patching(
+>>>>>>> 4a8ff5577341bcc0291c196e319d8f3bde0cc25f
     model,
     ioi_dataset,
     receiver_hooks,  # list of tuples (hook_name, idx). If idx is not None, then at dim 2 index in with idx (used for doing things for specific attention heads)
@@ -136,12 +149,10 @@ def plot_edge_patching(
 
             model = path_patching(
                 model=model,
-                source_dataset=abc_dataset,
-                target_dataset=ioi_dataset,
-                ioi_dataset=ioi_dataset,
+                D_new=abc_dataset,
+                D_orig=ioi_dataset,
                 sender_heads=[(source_layer, source_head_idx)],
                 receiver_hooks=receiver_hooks,
-                max_layer=12,
                 positions=[position],
                 verbose=False,
                 return_hooks=False,
@@ -179,8 +190,12 @@ def plot_edge_patching(
 
     return results, mlp_results
 
+<<<<<<< HEAD
 
 results, mlp_results = plot_edge_patching(
+=======
+plot_path_patching(
+>>>>>>> 4a8ff5577341bcc0291c196e319d8f3bde0cc25f
     model,
     ioi_dataset,
     receiver_hooks=[(f"blocks.{model.cfg.n_layers-1}.hook_resid_post", None)],
@@ -281,7 +296,7 @@ check_copy_circuit(
 #%% [markdown]
 # S-Inhibition patching
 
-plot_edge_patching(
+plot_path_patching(
     model,
     ioi_dataset,
     receiver_hooks=[
@@ -342,6 +357,100 @@ for idx, dataset in enumerate([ioi_dataset, abc_dataset]):
 
 model.reset_hooks()
 show_attention_patterns(model, [(9, 9), (9, 6), (10, 0)], ioi_dataset[:1])
+
+#%% [markdown]
+# Token and position signal results
+
+signal_specific_datasets = (
+    {}
+)  # keys are (token signal, positionnal signal) -1: inverted, 0: uncorrelated, 1: same as in ioi_dataset
+
+# if ABB is the original pattern
+
+signal_specific_datasets[(0, 1)] = ioi_dataset.gen_flipped_prompts(
+    ("IO", "RAND")
+).gen_flipped_prompts(
+    ("S", "RAND")
+)  # random name flip S1 and S2 are flipped to the same random name #DCC
+signal_specific_datasets[(0, -1)] = signal_specific_datasets[
+    (0, 1)
+].gen_flipped_prompts(
+    ("IO", "S1")
+)  # CDC
+
+
+signal_specific_datasets[(-1, -1)] = ioi_dataset.gen_flipped_prompts(
+    ("S2", "IO")
+)  # ABA
+signal_specific_datasets[(-1, 1)] = signal_specific_datasets[
+    (-1, -1)
+].gen_flipped_prompts(
+    ("IO", "S1")
+)  # BAA
+
+
+signal_specific_datasets[(1, -1)] = ioi_dataset.gen_flipped_prompts(("IO", "S1"))  # BAB
+signal_specific_datasets[(1, 1)] = ioi_dataset  # ABB original dataset
+
+
+def patch_end(z, source_act, hook):  # we patch at the "to" token
+    z[torch.arange(ioi_dataset.N), ioi_dataset.word_idx["end"]] = source_act[
+        torch.arange(ioi_dataset.N), ioi_dataset.word_idx["end"]
+    ]
+    return z
+
+
+s_inhibition_heads = [(8, 6), (8, 10), (7, 3), (7, 9)]
+
+logit_diff_per_signal = np.zeros((3, 2))
+
+for k, source_dataset in signal_specific_datasets.items():
+
+    config = PatchingConfig(
+        source_dataset=source_dataset.toks.long(),
+        target_dataset=ioi_dataset.toks.long(),
+        target_module="attn_head",
+        head_circuit="result",
+        cache_act=True,
+        verbose=False,
+        patch_fn=patch_end,
+        layers=(0, 9 - 1),
+    )
+    metric = ExperimentMetric(lambda x: x, ioi_dataset)  # dummy metric
+    patching = EasyPatching(model, config, metric)
+
+    model.reset_hooks()
+
+    for l, h in s_inhibition_heads:
+        hk_name, hk = patching.get_hook(
+            l, h
+        )  # we use the EasyPatching as a hook generator without running the experiment
+        model.add_hook(hk_name, hk)
+
+    tok_s, pos_s = k
+    logit_diff_per_signal[tok_s + 1, (pos_s + 1) // 2] = logit_diff(model, ioi_dataset)
+
+
+fig = px.imshow(logit_diff_per_signal)
+
+
+fig.update_layout(
+    yaxis=dict(
+        tickmode="array",
+        tickvals=[0, 1, 2],
+        ticktext=[
+            "Token signal inverted",
+            "Token signal uncorrelated",
+            "Token signal original",
+        ],
+    ),
+    xaxis=dict(
+        tickmode="array",
+        tickvals=[0, 1],
+        ticktext=["Position signal inverted", "Position signal original"],
+    ),
+)
+fig.show()
 
 #%% [markdown]
 # See the backup NM effect! After ablating several attention heads, we actually an increase in logit difference
@@ -428,6 +537,7 @@ for idx, extra_hooks in enumerate([[], the_extra_hooks]):
 
                 both_results.append(results.clone())
                 fig.show()
+
 #%% [markdown]
 # Plot the two sets of results
 

@@ -19,4 +19,10 @@ _modidx.py
 *.zip
 *.json
 *.png
+<<<<<<< HEAD
 *.pt
+=======
+*.pt
+*.pth
+*.pkl
+>>>>>>> 4a8ff5577341bcc0291c196e319d8f3bde0cc25f
