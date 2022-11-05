@@ -109,37 +109,6 @@ h.show(save=True)
 # %%
 attn_results_fast = deepcopy(h.attn_results)
 mlp_results_fast = deepcopy(h.mlp_results)
-#%% [markdown]
-# Test that Arthur didn't mess up the fast caching
-
-use_caching = False
-h = HypothesisTree(
-    model,
-    metric=logit_diff_io_s,
-    dataset=ioi_dataset,
-    orig_data=ioi_dataset.toks.long(),
-    new_data=abc_dataset.toks.long(),
-    threshold=0.15,
-)
-h.eval()
-attn_results_slow = deepcopy(h.attn_results)
-mlp_results_slow = deepcopy(h.mlp_results)
-
-for fast_res, slow_res in zip(
-    [attn_results_fast, mlp_results_fast], [attn_results_slow, mlp_results_slow]
-):
-    for layer in range(fast_res.shape[0]):
-        for head in range(fast_res.shape[1]):
-            assert torch.allclose(
-                torch.tensor(fast_res[layer, head]),
-                torch.tensor(slow_res[layer, head]),
-                atol=1e-3,
-                rtol=1e-3,
-            ), f"fast_res[{layer}, {head}] = {fast_res[layer, head]}, slow_res[{layer}, {head}] = {slow_res[layer, head]}"
-    for layer in range(fast_res.shape[0]):
-        assert torch.allclose(
-            torch.tensor(fast_res[layer]), torch.tensor(slow_res[layer])
-        ), f"fast_res[{layer}] = {fast_res[layer]}, slow_res[{layer}] = {slow_res[layer]}"
 
 #%% [markdown]
 # Make induction dataset
@@ -188,3 +157,26 @@ def filter_attn_hooks(hook_name):
 model.reset_hooks()
 initial_result = logits_metric(model, rand_tokens_repeat)
 assert 14 <= initial_result <= 18, initial_result
+
+#%% [markdown]
+
+
+positions = OrderedDict()
+batch_size, seq_len = rand_tokens_repeat.shape
+
+for i in range(seq_len):
+    positions[str(i)] = torch.ones(size=(batch_size,)).long() * i
+
+model.reset_hooks()
+h = HypothesisTree(
+    model,
+    metric=logits_metric,
+    dataset=rand_tokens_repeat,
+    orig_data=rand_tokens_repeat,
+    new_data=rand_tokens_control,
+    threshold=0.2,
+    possible_positions=positions,
+    use_caching=True,
+)
+
+h.eval()
