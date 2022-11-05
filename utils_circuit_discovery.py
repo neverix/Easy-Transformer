@@ -439,7 +439,7 @@ class HypothesisTree:
             "out": "red",
             "post": "red",
         }
-        current_node = h.root_node
+        current_node = self.root_node
         G = nx.DiGraph()
 
         def dfs(node):
@@ -472,3 +472,5 @@ class HypothesisTree:
 
         if save:
             plt.savefig("ioi_circuit.png")
+
+        plt.show()
