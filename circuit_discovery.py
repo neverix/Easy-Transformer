@@ -1,6 +1,13 @@
 # %%
 from typing import List, Tuple, Dict, Union, Optional, Callable, Any
+from utils_induction import (
+    prepend_padding,
+    logits_metric,
+    loss_metric,
+    path_patching_attribution,
+)
 import torch
+import einops
 import numpy as np
 from copy import deepcopy
 from collections import OrderedDict
@@ -135,4 +142,49 @@ for fast_res, slow_res in zip(
         ), f"fast_res[{layer}] = {fast_res[layer]}, slow_res[{layer}] = {slow_res[layer]}"
 
 #%% [markdown]
-# Arthur trying the induction task
+# Make induction dataset
+
+seq_len = 10
+batch_size = 5
+interweave = 10  # have this many things before a repeat
+
+rand_tokens = torch.randint(1000, 10000, (batch_size, seq_len))
+rand_tokens_repeat = torch.zeros(
+    size=(batch_size, seq_len * 2)
+).long()  # einops.repeat(rand_tokens, "batch pos -> batch (2 pos)")
+
+for i in range(seq_len // interweave):
+    rand_tokens_repeat[
+        :, i * (2 * interweave) : i * (2 * interweave) + interweave
+    ] = rand_tokens[:, i * interweave : i * interweave + interweave]
+    rand_tokens_repeat[
+        :, i * (2 * interweave) + interweave : i * (2 * interweave) + 2 * interweave
+    ] = rand_tokens[:, i * interweave : i * interweave + interweave]
+rand_tokens_control = torch.randint(1000, 10000, (batch_size, seq_len * 2))
+
+rand_tokens = prepend_padding(rand_tokens, model.tokenizer)
+rand_tokens_repeat = prepend_padding(rand_tokens_repeat, model.tokenizer)
+rand_tokens_control = prepend_padding(rand_tokens_control, model.tokenizer)
+
+
+def calc_score(attn_pattern, hook, offset, arr):
+    # Pattern has shape [batch, index, query_pos, key_pos]
+    stripe = attn_pattern.diagonal(offset, dim1=-2, dim2=-1)
+    scores = einops.reduce(stripe, "batch index pos -> index", "mean")
+    # Store the scores in a common array
+    arr[hook.layer()] = scores.detach().cpu().numpy()
+    # return arr
+    return attn_pattern
+
+
+def filter_attn_hooks(hook_name):
+    split_name = hook_name.split(".")
+    return split_name[-1] == "hook_attn"
+
+
+#%% [markdown]
+# is the model sane at induction?
+
+model.reset_hooks()
+initial_result = logits_metric(model, rand_tokens_repeat)
+assert 14 <= initial_result <= 18, initial_result
