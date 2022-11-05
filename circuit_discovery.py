@@ -178,17 +178,19 @@ h = HypothesisTree(
     dataset=rand_tokens_repeat,
     orig_data=rand_tokens_repeat,
     new_data=rand_tokens_control,
-    threshold=0.01,  # percentage, I think
+    threshold=0.05,  # percentage, I think
     possible_positions=positions,
     use_caching=True,
     loss_relevant_positions=[str(n) for n in range(15, 20)],
 )
 
 eval_round = 0
-while len(h.node_stack) > 0:
+# while len(h.node_stack) > 0:
+for _ in range(30): # should be enough!!!
     print(f"Evaluating round {eval_round}")
     eval_round += 1
     h.eval()
+h.show() # should then be sad and cover up things : (
 
 #%%
 
@@ -210,7 +212,8 @@ def show(h, save=False, current_node=None):
     G = nx.DiGraph()
 
     def dfs(node):
-        G.add_nodes_from([(node, {"layer": node.layer})])
+        G.add_nodes_from([(node, {"layer":
+         node.layer})])
         for child_node, child_score, child_type in node.parents:
             G.add_edges_from([(node, child_node, {"weight": round(child_score, 3)})])
             edge_color_list.append(color_dict[child_type])
@@ -239,3 +242,5 @@ def show(h, save=False, current_node=None):
         plt.savefig("ioi_circuit.png")
 
     plt.show()
+
+# %%
