@@ -511,7 +511,7 @@ class HypothesisTree:
             or self.node_stack[next(reversed(self.node_stack))].layer
             != self.model.cfg.n_layers
         ):
-            self.node_stack.popitem()
+            print(self.node_stack.popitem())
         if len(self.node_stack) > 0:
             self.current_node = self.node_stack[next(reversed(self.node_stack))]
         else:
