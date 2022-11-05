@@ -337,7 +337,7 @@ class HypothesisTree:
         self.model = model
         self.possible_positions = possible_positions
         self.node_stack = OrderedDict()
-        self.loss_relevant_positions = []
+        self.loss_relevant_positions = loss_relevant_positions
         assert (
             len(loss_relevant_positions) > 0
         ), "Must have at least one loss relevant position"
@@ -506,9 +506,10 @@ class HypothesisTree:
                         )
 
         # update self.current_node
-        while len(self.node_stack) > 0 and (
-            len(self.node_stack[next(reversed(self.node_stack))].children) == 0
-            or self.node_stack[next(reversed(self.node_stack))].layer
+        while (
+            len(self.node_stack) > 0
+            and len(self.node_stack[next(reversed(self.node_stack))].children) == 0
+            and self.node_stack[next(reversed(self.node_stack))].layer
             != self.model.cfg.n_layers
         ):
             print(self.node_stack.popitem())
