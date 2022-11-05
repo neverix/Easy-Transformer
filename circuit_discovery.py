@@ -18,7 +18,12 @@ from easy_transformer import EasyTransformer
 from ioi_dataset import (
     IOIDataset,
 )
-from utils_circuit_discovery import path_patching, logit_diff_io_s, HypothesisTree
+from utils_circuit_discovery import (
+    path_patching,
+    logit_diff_io_s,
+    HypothesisTree,
+    show_pp,
+)
 
 from IPython import get_ipython
 
