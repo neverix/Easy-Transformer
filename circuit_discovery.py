@@ -11,13 +11,10 @@ from easy_transformer import EasyTransformer
 from ioi_dataset import (
     IOIDataset,
 )
-from utils_circuit_discovery import (
-    path_patching, 
-    logit_diff_io_s,
-    HypothesisTree
-)
+from utils_circuit_discovery import path_patching, logit_diff_io_s, HypothesisTree
 
 from IPython import get_ipython
+
 ipython = get_ipython()
 if ipython is not None:
     ipython.magic("load_ext autoreload")
@@ -33,22 +30,22 @@ model.set_use_attn_result(True)
 # %%
 orig = "When John and Mary went to the store, John gave a bottle of milk to Mary."
 new = "When John and Mary went to the store, Charlie gave a bottle of milk to Mary."
-#new = "A completely different gibberish sentence blalablabladfghjkoiuytrdfg"
+# new = "A completely different gibberish sentence blalablabladfghjkoiuytrdfg"
 
 model.reset_hooks()
-logit = model(orig)[0,16,5335]
+logit = model(orig)[0, 16, 5335]
 
 model = path_patching(
-    model, 
-    orig, 
-    new, 
+    model,
+    orig,
+    new,
     [(5, 5)],
-    [('blocks.8.attn.hook_v', 6)],
+    [("blocks.8.attn.hook_v", 6)],
     12,
     position=torch.tensor([16]),
 )
 
-new_logit = model(orig)[0,16,5335]
+new_logit = model(orig)[0, 16, 5335]
 model.reset_hooks()
 print(logit, new_logit)
 
@@ -67,32 +64,32 @@ abc_dataset = (
 )
 # %%
 # the circuit discovery algorithm
-# 
+#
 # we want to write down the process of discovery the IOI circuit as an algorithm
 # 1. start at the logits at the token position 'end', run path patching on each head and mlp.
 # 2. pick threshold (probably in terms of percentage change in metric we care about?), identify components that have effect sizes above threshold
 # 3. for comp in identified components:
 ## a. run path patching on all components upstream to it, with the q, k, or v part of comp as receiver
-#%% [markdown] 
+#%% [markdown]
 # Main part of the automatic circuit discovery algorithm
 
 
 positions = OrderedDict()
-positions['IO'] = ioi_dataset.word_idx['IO']
-positions['S'] = ioi_dataset.word_idx['S']
-positions['S+1'] = ioi_dataset.word_idx['S+1']
-positions['S2'] = ioi_dataset.word_idx['S2']
-positions['end'] = ioi_dataset.word_idx['end']
+positions["IO"] = ioi_dataset.word_idx["IO"]
+positions["S"] = ioi_dataset.word_idx["S"]
+positions["S+1"] = ioi_dataset.word_idx["S+1"]
+positions["S2"] = ioi_dataset.word_idx["S2"]
+positions["end"] = ioi_dataset.word_idx["end"]
 
 h = HypothesisTree(
-    model, 
-    metric=logit_diff_io_s, 
+    model,
+    metric=logit_diff_io_s,
     dataset=ioi_dataset,
-    orig_data=ioi_dataset.toks.long(), 
-    new_data=abc_dataset.toks.long(), 
+    orig_data=ioi_dataset.toks.long(),
+    new_data=abc_dataset.toks.long(),
     threshold=0.2,
     possible_positions=positions,
-    use_caching=True
+    use_caching=True,
 )
 
 # %%
@@ -110,45 +107,32 @@ mlp_results_fast = deepcopy(h.mlp_results)
 
 use_caching = False
 h = HypothesisTree(
-    model, 
-    metric=logit_diff_io_s, 
-    dataset=ioi_dataset, 
-    orig_data=ioi_dataset.toks.long(), 
-    new_data=abc_dataset.toks.long(), 
-    threshold=0.15,  
+    model,
+    metric=logit_diff_io_s,
+    dataset=ioi_dataset,
+    orig_data=ioi_dataset.toks.long(),
+    new_data=abc_dataset.toks.long(),
+    threshold=0.15,
 )
 h.eval()
 attn_results_slow = deepcopy(h.attn_results)
 mlp_results_slow = deepcopy(h.mlp_results)
 
-for fast_res, slow_res in zip([attn_results_fast, mlp_results_fast], [attn_results_slow, mlp_results_slow]):
+for fast_res, slow_res in zip(
+    [attn_results_fast, mlp_results_fast], [attn_results_slow, mlp_results_slow]
+):
     for layer in range(fast_res.shape[0]):
         for head in range(fast_res.shape[1]):
-            assert torch.allclose(torch.tensor(fast_res[layer, head]), torch.tensor(slow_res[layer, head]), atol=1e-3, rtol=1e-3), f"fast_res[{layer}, {head}] = {fast_res[layer, head]}, slow_res[{layer}, {head}] = {slow_res[layer, head]}"
+            assert torch.allclose(
+                torch.tensor(fast_res[layer, head]),
+                torch.tensor(slow_res[layer, head]),
+                atol=1e-3,
+                rtol=1e-3,
+            ), f"fast_res[{layer}, {head}] = {fast_res[layer, head]}, slow_res[{layer}, {head}] = {slow_res[layer, head]}"
     for layer in range(fast_res.shape[0]):
-        assert torch.allclose(torch.tensor(fast_res[layer]), torch.tensor(slow_res[layer])), f"fast_res[{layer}] = {fast_res[layer]}, slow_res[{layer}] = {slow_res[layer]}"
+        assert torch.allclose(
+            torch.tensor(fast_res[layer]), torch.tensor(slow_res[layer])
+        ), f"fast_res[{layer}] = {fast_res[layer]}, slow_res[{layer}] = {slow_res[layer]}"
 
-#%%
-def randomise_indices(arr: np.ndarray, indices: np.ndarray):
-    """
-    Given an array arr, shuffle the elements that occur at the indices positions between themselves
-    """
-
-    # get the elements that we want to shuffle
-    elements = arr[indices]
-
-    # shuffle the elements
-    np.random.shuffle(elements)
-
-    # put the shuffled elements back into the array
-    arr[indices] = elements
-
-    return arr
-
-#%%
-
-a = [1, 2, 3, 4, 5]
-b = [1, 2, 3]
-a = np.array(a)
-b = np.array(b)
-print(randomise_indices(a, b))
+#%% [markdown]
+# Arthur trying the induction task
