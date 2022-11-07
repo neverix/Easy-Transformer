@@ -16,6 +16,7 @@ from utils_circuit_discovery import (
     path_patching, 
     logit_diff_io_s,
     HypothesisTree
+    show_graph,
 )
 
 from IPython import get_ipython
@@ -108,6 +109,10 @@ while h.current_node is not None:
 plt.figure()
 h.show(save_file=f"iter_{i:03d}_final.png")
 plt.show()
+
+# %% Plot using Graphviz, looks nicer
+
+show_graph(h).render()
 
 # %%
 attn_results_fast = deepcopy(h.attn_results)
