@@ -186,11 +186,11 @@ h = HypothesisTree(
 
 eval_round = 0
 # while len(h.node_stack) > 0:
-for _ in range(30): # should be enough!!!
+for _ in range(30):  # should be enough!!!
     print(f"Evaluating round {eval_round}")
     eval_round += 1
     h.eval()
-h.show() # should then be sad and cover up things : (
+h.show()  # should then be sad and cover up things : (
 
 #%%
 
@@ -212,8 +212,7 @@ def show(h, save=False, current_node=None):
     G = nx.DiGraph()
 
     def dfs(node):
-        G.add_nodes_from([(node, {"layer":
-         node.layer})])
+        G.add_nodes_from([(node, {"layer": node.layer})])
         for child_node, child_score, child_type in node.parents:
             G.add_edges_from([(node, child_node, {"weight": round(child_score, 3)})])
             edge_color_list.append(color_dict[child_type])
@@ -242,5 +241,6 @@ def show(h, save=False, current_node=None):
         plt.savefig("ioi_circuit.png")
 
     plt.show()
+
 
 # %%
