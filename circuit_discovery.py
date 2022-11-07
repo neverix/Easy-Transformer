@@ -2,6 +2,7 @@
 from typing import List, Tuple, Dict, Union, Optional, Callable, Any
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from copy import deepcopy
 from collections import OrderedDict
 from ioi_dataset import IOIDataset
@@ -97,10 +98,16 @@ h = HypothesisTree(
 
 # %%
 h.eval(show_graphics=False)
+i = 1
 while h.current_node is not None:
+    plt.figure()
     h.eval(verbose=True, show_graphics=False, auto_threshold=True)
-    h.show(save=True)
-h.show(save=True)
+    h.show(save_file=f"iter_{i:03d}.png")
+    plt.show()
+    i += 1
+plt.figure()
+h.show(save_file=f"iter_{i:03d}_final.png")
+plt.show()
 
 # %%
 attn_results_fast = deepcopy(h.attn_results)
