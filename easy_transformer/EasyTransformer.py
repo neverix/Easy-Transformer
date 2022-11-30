@@ -419,10 +419,16 @@ class EasyTransformer(HookedRootModule):
                     hf_model = AutoModelForCausalLM.from_pretrained(
                         hf_model_name, revision=f"checkpoint-{checkpoint}"
                     )
+            elif model_name == "gpt2_jax":
+                warnings.warn("Not loading in a hf_model for gpt2_jax")
             else:
                 hf_model = AutoModelForCausalLM.from_pretrained(hf_model_name)
 
-        cfg = cls.convert_hf_config(hf_model.config, model_family=model_family)
+        if model_family == "gpt2_jax":
+            pass
+        else:
+            cfg = cls.convert_hf_config(hf_model.config, model_family=model_family)
+
         if device is not None:
             cfg.device = device
         cfg.checkpoint = checkpoint
