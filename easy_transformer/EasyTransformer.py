@@ -344,7 +344,7 @@ class EasyTransformer(HookedRootModule):
         elif isinstance(device, torch.dtype):
             self.cfg.dtype = device
             print("Changing model dtype to", self.cfg.dtype)
-        nn.Module.to(self, device)
+        return nn.Module.to(self, device)
 
     @classmethod
     def from_pretrained(
