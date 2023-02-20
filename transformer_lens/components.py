@@ -264,6 +264,7 @@ class Attention(nn.Module):
         # Create a max_ctx x max_ctx mask, with True iff that query position
         # can attend to that key position (query is first axis, key is second axis)
         causal_mask = torch.tril(torch.ones((self.cfg.n_ctx, self.cfg.n_ctx)).bool())
+        self.no_attn = False
         if self.attn_type == "global":
             # For global attention, this is a lower triangular matrix - key <= query
             self.register_buffer("mask", causal_mask)
@@ -273,6 +274,8 @@ class Attention(nn.Module):
             self.register_buffer(
                 "mask", torch.triu(causal_mask, 1 - self.cfg.window_size)
             )
+        elif self.attn_type == "none":
+            self.no_attn = True
         else:
             raise ValueError(f"Invalid attention type: {self.attn_type}")
 
@@ -356,6 +359,15 @@ class Attention(nn.Module):
             qkv_einops_string = "batch pos head_index d_model"
         else:
             qkv_einops_string = "batch pos d_model"
+        
+        if self.no_attn:
+            return einsum(
+                        f"{qkv_einops_string}, \
+                        head_index d_head d_model -> \
+                        batch pos d_model",
+                        query_input,
+                        self.W_O,
+                    )
 
         q = self.hook_q(
             einsum(
