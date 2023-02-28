@@ -361,6 +361,7 @@ class Attention(nn.Module):
             qkv_einops_string = "batch pos d_model"
         
         if self.no_attn:
+            return query_input
             return einsum(
                         f"{qkv_einops_string}, \
                         head_index d_head d_model -> \
