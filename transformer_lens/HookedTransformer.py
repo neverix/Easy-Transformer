@@ -329,7 +329,7 @@ class HookedTransformer(HookedRootModule):
             )  # [batch, pos, d_model]
             residual = embed
             shortformer_pos_embed = pos_embed
-        elif self.cfg.positional_embedding_type == "rotary":
+        elif self.cfg.positional_embedding_type in ("rotary", "none"):
             # Rotary doesn't use positional embeddings, instead they're applied when dot producting
             # keys and queries. See HookedTransformerConfig for details
             residual = embed
